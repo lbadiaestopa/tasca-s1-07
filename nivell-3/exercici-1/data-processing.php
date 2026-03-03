@@ -15,7 +15,6 @@ enum Rule: string
     case MISSING          = 'missing';
     case EMPTY            = 'empty';
 
-    case HAS_LETTER       = 'has_letter';
     case OUT_LIMIT        = 'out_limit';
 
     case TOO_SHORT        = 'too_short';
@@ -167,21 +166,20 @@ function validateRequiredField(array $source, string $fieldName): string
         throw new InvalidArgumentException("$fieldName field cannot be empty.");
     }
 
+    if($fieldName === "age" || $fieldName === "phone") {
+        $value = filter_var($value, FILTER_SANITIZE_NUMBER_INT);
+    }
+
     return $value;
 }
 
 function validateAge(string $rawAge): int
 {
-    if (!ctype_digit($rawAge)) {
-        throw new AgeException(Rule::HAS_LETTER);
-    }
-
-    $age = (int) $rawAge;
-
-    if ($age < 0 || $age > 120) {
+    $age = filter_var($rawAge, FILTER_VALIDATE_INT, ['options' => ['min_range'=>0,'max_range'=>120]]);
+    if ($age === false) {
         throw new AgeException(Rule::OUT_LIMIT);
     }
-
+    
     return $age;
 }
 
@@ -221,9 +219,7 @@ function validateEmail(string $email): string
 
 function validatePhone(string $phone): string
 {
-    if (!ctype_digit($phone)) {
-        throw new PhoneException(Rule::HAS_LETTER);
-    }
+    $phone = filter_var($phone, FILTER_SANITIZE_NUMBER_INT);
 
     if (strlen($phone) !== 9) {
         throw new PhoneException(Rule::INCORRECT_NUMBER);
