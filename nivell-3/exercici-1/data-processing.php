@@ -100,7 +100,7 @@ class PasswordException extends ValidationException
 {
     public function __construct(Rule $rule, ?Throwable $previous = null)
     {
-        parent::__construct(Field::PASSWORD, $rule, $previous);
+        parent::__construct(Field::PASS, $rule, $previous);
     }
 
     protected function buildMessage(Field $field, Rule $rule): string
