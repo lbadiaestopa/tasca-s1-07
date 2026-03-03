@@ -1,30 +1,24 @@
 <?php
 session_start();
 
-try {
-    if (!isset($_POST['name'])) {
-        throw new InvalidArgumentException("Error: Name field does not exist.");
+function validateRequiredField(array $source, string $fieldName): string
+{
+    if (!isset($source[$fieldName])) {
+        throw new InvalidArgumentException("$fieldName field does not exist.");
     }
 
-    $name = trim($_POST['name']);
+    $value = trim($source[$fieldName]);
 
-    if ($name === '') {
-        throw new InvalidArgumentException("Error: Name field cannot be empty.");
+    if ($value === '') {
+        throw new InvalidArgumentException("$fieldName field cannot be empty.");
     }
 
-    $_SESSION['name'] = $name;
+    return $value;
+}
 
-    if (!isset($_POST['age'])) {
-        throw new InvalidArgumentException("Error: Age field does not exist.");
-    }
-
-    $rawAge = trim($_POST['age']);
-
-    if ($rawAge === '') {
-        throw new InvalidArgumentException("Error: Age field cannot be empty.");
-    }
-
-    if (!is_numeric($rawAge)) {
+function validateAge(string $rawAge): int
+{
+    if (!ctype_digit($rawAge)) {
         throw new InvalidArgumentException("Error: Age must be a number.");
     }
 
@@ -34,18 +28,11 @@ try {
         throw new InvalidArgumentException("Error: Age must be between 0 and 120.");
     }
 
-    $_SESSION['age'] = $age;
+    return $age;
+}
 
-    if (!isset($_POST['pass'])) {
-        throw new InvalidArgumentException("Error: Password field does not exist.");
-    }
-
-    $password = $_POST['pass'];
-
-    if ($password === '') {
-        throw new InvalidArgumentException("Error: Password cannot be empty.");
-    }
-
+function validatePassword(string $password): string
+{
     if (strlen($password) < 8) {
         throw new InvalidArgumentException("Error: Password must be at least 8 characters.");
     }
@@ -62,7 +49,19 @@ try {
         throw new InvalidArgumentException("Error: Password must contain at least one number.");
     }
 
-    $_SESSION['pass'] = $password;
+    return $password;
+}
+
+try {
+    $name = validateRequiredField($_POST, "name");
+    $_SESSION['name'] = $name;
+
+    $rawAge = validateRequiredField($_POST, "age");
+    $age = validateAge($rawAge);
+    $_SESSION['age'] = $age;
+
+    $password = validateRequiredField($_POST, "pass");
+    $_SESSION['pass'] = validatePassword($password);
 } catch (InvalidArgumentException $e) {
     $error = $e->getMessage();
 }
