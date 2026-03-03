@@ -3,9 +3,9 @@ session_start();
 
 enum Field: string
 {
-    case NAME     = 'name';
-    case AGE      = 'age';
-    case PASSWORD = 'password';
+    case NAME = 'name';
+    case AGE  = 'age';
+    case PASS = 'pass';
 }
 
 enum Rule: string
@@ -13,11 +13,9 @@ enum Rule: string
     case MISSING       = 'missing';
     case EMPTY         = 'empty';
 
-        // Age rules
     case HAS_LETTER    = 'has_letter';
     case OUT_LIMIT     = 'out_limit';
 
-        // Password rules
     case TOO_SHORT     = 'too_short';
     case CONTAINS_SPACE = 'contains_space';
     case NO_LETTER     = 'no_letter';
@@ -96,7 +94,7 @@ class PasswordException extends ValidationException
 {
     public function __construct(Rule $rule, ?Throwable $previous = null)
     {
-        parent::__construct(Field::PASSWORD, $rule, $previous);
+        parent::__construct(Field::PASS, $rule, $previous);
     }
 
     protected function buildMessage(Field $field, Rule $rule): string
@@ -113,30 +111,23 @@ class PasswordException extends ValidationException
     }
 }
 
-
-try {
-    if (!isset($_POST['name'])) {
-        throw new NameException(Rule::MISSING);
+function validateRequiredField(array $source, string $fieldName): string
+{
+    if (!isset($source[$fieldName])) {
+        throw new InvalidArgumentException("$fieldName field does not exist.");
     }
 
-    $name = trim($_POST['name']);
+    $value = trim($source[$fieldName]);
 
-    if ($name === '') {
-        throw new NameException(Rule::EMPTY);
+    if ($value === '') {
+        throw new InvalidArgumentException("$fieldName field cannot be empty.");
     }
 
-    $_SESSION['name'] = $name;
+    return $value;
+}
 
-    if (!isset($_POST['age'])) {
-        throw new AgeException(Rule::MISSING);
-    }
-
-    $rawAge = trim($_POST['age']);
-
-    if ($rawAge === '') {
-        throw new AgeException(Rule::EMPTY);
-    }
-
+function validateAge(string $rawAge): int
+{
     if (!ctype_digit($rawAge)) {
         throw new AgeException(Rule::HAS_LETTER);
     }
@@ -147,24 +138,17 @@ try {
         throw new AgeException(Rule::OUT_LIMIT);
     }
 
-    $_SESSION['age'] = $age;
+    return $age;
+}
 
-    if (!isset($_POST['pass'])) {
-        throw new PasswordException(Rule::MISSING);
-    }
-
-    $password = $_POST['pass'];
-
-    if ($password === '') {
-        throw new PasswordException(Rule::EMPTY);
-    }
-
+function validatePassword(string $password): string
+{
     if (strlen($password) < 8) {
         throw new PasswordException(Rule::TOO_SHORT);
     }
 
     if (strpos($password, ' ') !== false) {
-        throw new PasswordException(Rule::CONTAINS_SPACE);
+        throw new PasswordException(Rule::HAS_SPACE);
     }
 
     if (!preg_match('/[a-zA-Z]/', $password)) {
@@ -175,7 +159,21 @@ try {
         throw new PasswordException(Rule::NO_NUMBER);
     }
 
-    $_SESSION['pass'] = $password;
+    return $password;
+}
+
+
+
+try {
+    $name = validateRequiredField($_POST, "name");
+    $_SESSION['name'] = $name;
+
+    $rawAge = validateRequiredField($_POST, "age");
+    $age = validateAge($rawAge);
+    $_SESSION['age'] = $age;
+
+    $password = validateRequiredField($_POST, "pass");
+    $_SESSION['pass'] = validatePassword($password);  
 
 } catch (NameException | AgeException | PasswordException $e) {
     $error = $e->getMessage();
