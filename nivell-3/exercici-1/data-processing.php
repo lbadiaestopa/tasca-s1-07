@@ -1,107 +1,257 @@
 <?php
 session_start();
 
-class NameException extends Exception {}
-class AgeException extends Exception {}
-class PasswordException extends Exception {}
-class EmailException extends Exception {}
-class PhoneException extends Exception {}
+enum Field: string
+{
+    case NAME  = 'name';
+    case AGE   = 'age';
+    case PASS  = 'pass';
+    case EMAIL = 'email';
+    case PHONE = 'phone';
+}
 
-try {
-    if (!isset($_POST['name'])) {
-        throw new NameException("Error: Name field does not exist.");
+enum Rule: string
+{
+    case MISSING          = 'missing';
+    case EMPTY            = 'empty';
+
+    case HAS_LETTER       = 'has_letter';
+    case OUT_LIMIT        = 'out_limit';
+
+    case TOO_SHORT        = 'too_short';
+    case HAS_SPACE        = 'has_space';
+    case NO_LETTER        = 'no_letter';
+    case NO_NUMBER        = 'no_number';
+
+    case INVALID_FORMAT   = 'invalid-format';
+
+    case INCORRECT_NUMBER = 'incorrect_number';
+}
+
+abstract class ValidationException extends Exception
+{
+    protected const HTTP_STATUS = 422;
+
+    protected Field $field;
+    protected Rule  $rule;
+
+    public function __construct(Field $field, Rule $rule, ?Throwable $previous = null)
+    {
+        $this->field = $field;
+        $this->rule  = $rule;
+
+        parent::__construct(
+            $this->buildMessage($field, $rule),
+            self::HTTP_STATUS,
+            $previous
+        );
     }
 
-    $name = trim($_POST['name']);
+    abstract protected function buildMessage(Field $field, Rule $rule): string;
 
-    if ($name === '') {
-        throw new NameException("Error: Name field cannot be empty.");
+    public function getField(): Field
+    {
+        return $this->field;
     }
 
-    $_SESSION['name'] = $name;
+    public function getRule(): Rule
+    {
+        return $this->rule;
+    }
+}
 
-    if (!isset($_POST['age'])) {
-        throw new AgeException("Error: Age field does not exist.");
+class NameException extends ValidationException
+{
+    public function __construct(Rule $rule, ?Throwable $previous = null)
+    {
+        parent::__construct(Field::NAME, $rule, $previous);
     }
 
-    $rawAge = trim($_POST['age']);
+    protected function buildMessage(Field $field, Rule $rule): string
+    {
+        return match ($rule) {
+            Rule::MISSING => 'Name field does not exist.',
+            Rule::EMPTY   => 'Name cannot be empty.',
+            default       => 'Invalid name.',
+        };
+    }
+}
 
-    if ($rawAge === '') {
-        throw new AgeException("Error: Age field cannot be empty.");
+class AgeException extends ValidationException
+{
+    public function __construct(Rule $rule, ?Throwable $previous = null)
+    {
+        parent::__construct(Field::AGE, $rule, $previous);
     }
 
-    if (!is_numeric($rawAge)) {
-        throw new AgeException("Error: Age must be a number.");
+    protected function buildMessage(Field $field, Rule $rule): string
+    {
+        return match ($rule) {
+            Rule::MISSING    => 'Age field does not exist.',
+            Rule::EMPTY      => 'Age cannot be empty.',
+            Rule::HAS_LETTER => 'Age cannot contain letters.',
+            Rule::OUT_LIMIT  => 'Age must be between 0 and 120.',
+            default          => 'Invalid age.',
+        };
+    }
+}
+
+class PasswordException extends ValidationException
+{
+    public function __construct(Rule $rule, ?Throwable $previous = null)
+    {
+        parent::__construct(Field::PASSWORD, $rule, $previous);
+    }
+
+    protected function buildMessage(Field $field, Rule $rule): string
+    {
+        return match ($rule) {
+            Rule::MISSING   => 'Password field does not exist.',
+            Rule::EMPTY     => 'Password cannot be empty.',
+            Rule::TOO_SHORT => 'Password must be at least 8 characters.',
+            Rule::HAS_SPACE => 'Password cannot contain spaces.',
+            Rule::NO_LETTER => 'Password must contain at least one letter.',
+            Rule::NO_NUMBER => 'Password must contain at least one number.',
+            default         => 'Invalid password.',
+        };
+    }
+}
+
+class EmailException extends ValidationException
+{
+    public function __construct(Rule $rule, ?Throwable $previous = null)
+    {
+        parent::__construct(Field::EMAIL, $rule, $previous);
+    }
+
+    protected function buildMessage(Field $field, Rule $rule): string
+    {
+        return match ($rule) {
+            Rule::MISSING        => 'Email field does not exist.',
+            Rule::EMPTY          => 'Email cannot be empty.',
+            Rule::HAS_SPACE      => 'Email cannot contain spaces.',
+            Rule::INVALID_FORMAT => 'Invalid email format.',
+            default              => 'Invalid email.',
+        };
+    }
+}
+
+class PhoneException extends ValidationException
+{
+    public function __construct(Rule $rule, ?Throwable $previous = null)
+    {
+        parent::__construct(Field::PHONE, $rule, $previous);
+    }
+
+    protected function buildMessage(Field $field, Rule $rule): string
+    {
+        return match ($rule) {
+            Rule::MISSING           => 'Phone field does not exist.',
+            Rule::EMPTY             => 'Phone cannot be empty.',
+            Rule::INCORRECT_NUMBER  => 'Phone must have 9 numbers.', 
+            Rule::HAS_LETTER        => 'Phone cannot have letters.',
+            default                 => 'Invalid phone number.',
+        };
+    }
+}
+
+function validateRequiredField(array $source, string $fieldName): string
+{
+    if (!isset($source[$fieldName])) {
+        throw new InvalidArgumentException("$fieldName field does not exist.");
+    }
+
+    $value = trim($source[$fieldName]);
+
+    if ($value === '') {
+        throw new InvalidArgumentException("$fieldName field cannot be empty.");
+    }
+
+    return $value;
+}
+
+function validateAge(string $rawAge): int
+{
+    if (!ctype_digit($rawAge)) {
+        throw new AgeException(Rule::HAS_LETTER);
     }
 
     $age = (int) $rawAge;
 
     if ($age < 0 || $age > 120) {
-        throw new AgeException("Error: Age must be between 0 and 120.");
+        throw new AgeException(Rule::OUT_LIMIT);
     }
 
-    $_SESSION['age'] = $age;
+    return $age;
+}
 
-    if (!isset($_POST['pass'])) {
-        throw new AgeException("Error: Password field does not exist.");
-    }
-
-    $password = $_POST['pass'];
-
-    if ($password === '') {
-        throw new PasswordException("Error: Password cannot be empty.");
-    }
-
+function validatePassword(string $password): string
+{
     if (strlen($password) < 8) {
-        throw new PasswordException("Error: Password must be at least 8 characters.");
+        throw new PasswordException(Rule::TOO_SHORT);
     }
 
     if (strpos($password, ' ') !== false) {
-        throw new NameException("Error: Password cannot contain spaces.");
+        throw new PasswordException(Rule::HAS_SPACE);
     }
 
     if (!preg_match('/[a-zA-Z]/', $password)) {
-        throw new PasswordException("Error: Password must contain at least one letter.");
+        throw new PasswordException(Rule::NO_LETTER);
     }
 
     if (!preg_match('/\d/', $password)) {
-        throw new PasswordException("Error: Password must contain at least one number.");
+        throw new PasswordException(Rule::NO_NUMBER);
     }
 
-    $_SESSION['pass'] = $password;
+    return $password;
+}
 
-     if (!isset($_POST['email'])) {
-        throw new EmailException("Email field does not exist.");
-    }
-
-    $email = trim($_POST['email']);
-
-    if ($email === '') {
-        throw new EmailException("Email cannot be empty.");
+function validateEmail(string $email): string
+{
+    if (strpos($email, ' ') !== false) {
+        throw new EmailException(Rule::HAS_SPACE);
     }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new EmailException("Invalid email format.");
+        throw new EmailException(Rule::INVALID_FORMAT);
     }
 
+    return $email;
+}
+
+function validatePhone(string $phone): string
+{
+    if (!ctype_digit($phone)) {
+        throw new PhoneException(Rule::HAS_LETTER);
+    }
+
+    if (strlen($phone) !== 9) {
+        throw new PhoneException(Rule::INCORRECT_NUMBER);
+    }
+
+    return $phone;
+}
+
+
+try {
+    $name = validateRequiredField($_POST, "name");
+    $_SESSION['name'] = $name;
+
+    $rawAge = validateRequiredField($_POST, "age");
+    $age = validateAge($rawAge);
+    $_SESSION['age'] = $age;
+
+    $password = validateRequiredField($_POST, "pass");
+    $_SESSION['pass'] = validatePassword($password);
+
+    $email = validateRequiredField($_POST, "email");
+    $email = validateEmail($email);
     $_SESSION['email'] = $email;
 
-    if (!isset($_POST['phone'])) {
-        throw new PhoneException("Phone field does not exist.");
-    }
+    $phone = validateRequiredField($_POST, "phone");
+    $phone = validatePhone($phone);
+    $_SESSION['phone'] = $phone;    
 
-    $phone = trim($_POST['phone']);
-
-    if ($phone === '') {
-        throw new PhoneException("Phone cannot be empty.");
-    }
-
-    if (!preg_match('/^\d{9}$/', $phone)) {
-        throw new PhoneException("Phone number must have 9 digits.");
-    }
-
-    $_SESSION['phone'] = $phone;
-    
 } catch (NameException | AgeException | PasswordException | EmailException | PhoneException $e) {
     $error = $e->getMessage();
 }
