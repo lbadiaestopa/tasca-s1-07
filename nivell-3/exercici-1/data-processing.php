@@ -145,7 +145,8 @@ try {
             <p class="error"><?= htmlspecialchars($error) ?></p>
         <?php else : ?>
             <h1>Dades rebudes</h1>
-            <p>Hola, <?= htmlspecialchars($name) ?>! Tens <?= $age ?> anys i la teva contrassenya és <?= $password ?></p>
+            <p>Hola, <?= htmlspecialchars($name) ?>! Tens <?= $age ?> anys, la teva contrassenya és <?= $password ?>, 
+            el teu correu és <?= htmlspecialchars($email) ?>, i el teu telèfon és <?= $phone ?>.</p>
         <?php endif; ?>
 
     </div>
