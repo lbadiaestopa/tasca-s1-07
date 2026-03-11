@@ -111,21 +111,21 @@ function validatePhone(string $phone): string
 
 
 try {
-    $name = validateRequiredField($_POST, "name");
+    $name = validateRequiredField($_POST, Field::NAME->value);
     $_SESSION['name'] = $name;
 
-    $rawAge = validateRequiredField($_POST, "age");
+    $rawAge = validateRequiredField($_POST, Field::AGE->value);
     $age = validateAge($rawAge);
     $_SESSION['age'] = $age;
 
-    $password = validateRequiredField($_POST, "pass");
+    $password = validateRequiredField($_POST, Field::PASS->value);
     $_SESSION['pass'] = validatePassword($password);
 
-    $email = validateRequiredField($_POST, "email");
+    $email = validateRequiredField($_POST, Field::EMAIL->value);
     $email = validateEmail($email);
     $_SESSION['email'] = $email;
 
-    $phone = validateRequiredField($_POST, "phone");
+    $phone = validateRequiredField($_POST, Field::PHONE->value);
     $phone = validatePhone($phone);
     $_SESSION['phone'] = $phone;    
 
